@@ -1,3 +1,4 @@
+import 'package:ecommerce_app/pages/dashboard_page.dart';
 import 'package:flutter/material.dart';
 import 'welcome_page.dart';
 
@@ -111,10 +112,15 @@ class LoginPage extends StatelessWidget {
                 width: double.infinity,
                 child: ElevatedButton(
                   onPressed: () {
-                    // TODO: action login
-                  },
+                            Navigator.pushReplacement(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const DashboardPage(),
+                              ),
+                            );
+                          },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFFF5A1A),
+                    backgroundColor: const Color.fromARGB(255, 255, 107, 48),
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(

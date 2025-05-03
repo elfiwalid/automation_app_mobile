@@ -1,4 +1,5 @@
 import 'package:ecommerce_app/pages/login_page.dart';
+import 'package:ecommerce_app/pages/register_page.dart';
 import 'package:flutter/material.dart';
 import 'login_page.dart';
 
@@ -53,7 +54,7 @@ class WelcomePage extends StatelessWidget {
                             );
                           },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFFF5A1A),
+                    backgroundColor: const Color.fromARGB(255, 255, 107, 48),
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
@@ -73,8 +74,13 @@ class WelcomePage extends StatelessWidget {
                 width: double.infinity,
                 child: OutlinedButton(
                   onPressed: () {
-                    // TODO: action inscription
-                  },
+                            Navigator.pushReplacement(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const RegisterPage(),
+                              ),
+                            );
+                          },
                   style: OutlinedButton.styleFrom(
                     side: const BorderSide(color: Color(0xFF141414), width: 1),
                     padding: const EdgeInsets.symmetric(vertical: 16),

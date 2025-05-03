@@ -74,7 +74,7 @@ class _IntroSliderState extends State<IntroSlider> {
                             );
                           },
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFFFF5A1A),
+                            backgroundColor: const Color.fromARGB(255, 255, 107, 48),
                             foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(
                               vertical: 14,
