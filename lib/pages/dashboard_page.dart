@@ -1,5 +1,6 @@
 import 'package:ecommerce_app/pages/commande_page.dart';
 import 'package:ecommerce_app/pages/produit_page.dart';
+import 'package:ecommerce_app/pages/profile_page.dart';
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 
@@ -65,7 +66,7 @@ class _DashboardPageState extends State<DashboardPage> {
       case 2:
         return CommandePage();
       case 3:
-        return const Center(child: Text('Profil'));
+        return ProfilePage();
       default:
         return const SizedBox.shrink();
     }

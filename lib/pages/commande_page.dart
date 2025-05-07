@@ -29,7 +29,7 @@ class _CommandePageState extends State<CommandePage> {
     },
     {
       'nom_client': 'Youssef Kita',
-      'adresse': 'rue flani 23bd',
+      'adresse': 'Rue flani 23bd',
       'ville': 'Berrechid',
       'telephone': '065445767',
       'mode_paiement': 'COD',
@@ -49,17 +49,17 @@ class _CommandePageState extends State<CommandePage> {
     return Scaffold(
       backgroundColor: const Color(0xFFF4F6FA),
       appBar: AppBar(
-        backgroundColor: Colors.white.withOpacity(0.9),
+        backgroundColor: Colors.white.withOpacity(0.95),
         elevation: 4,
         centerTitle: true,
         shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(bottom: Radius.circular(20)),
         ),
-        leading: Padding(
-          padding: const EdgeInsets.only(left: 12),
+        leading: const Padding(
+          padding: EdgeInsets.only(left: 12),
           child: CircleAvatar(
-            backgroundColor: const Color(0xFFFFEEE5),
-            child: const Icon(Icons.local_shipping_outlined, color: Color(0xFFFF5A1A)),
+            backgroundColor: Color(0xFFFFEEE5),
+            child: Icon(Icons.local_shipping_outlined, color: Color(0xFFFF5A1A)),
           ),
         ),
         title: const Text(
@@ -82,121 +82,131 @@ class _CommandePageState extends State<CommandePage> {
       body: ListView.builder(
         padding: const EdgeInsets.all(16),
         itemCount: commandes.length,
-        itemBuilder: (context, index) =>
-            _buildCommandeCard(commandes[index], index),
+        itemBuilder: (context, index) => _buildCommandeCard(commandes[index], index),
       ),
     );
   }
 
-  Widget _buildCommandeCard(Map<String, String> commande, int index) {
-    final statut = commande['statut']!;
-    IconData icon;
-    Color color;
-    String label;
+Widget _buildCommandeCard(Map<String, String> commande, int index) {
+  final statut = commande['statut']!;
+  IconData icon;
+  Color color;
+  String label;
 
-    switch (statut) {
-      case 'validée':
-        icon = Icons.check_circle;
-        color = Colors.green;
-        label = 'Confirmée';
-        break;
-      case 'annulee':
-        icon = Icons.cancel;
-        color = Colors.redAccent;
-        label = 'Annulée';
-        break;
-      default:
-        icon = Icons.hourglass_bottom;
-        color = const Color(0xFFFF9800);
-        label = 'En attente';
-    }
+  switch (statut) {
+    case 'validée':
+      icon = Icons.check_circle;
+      color = const Color(0xFF4CAF50); // vert
+      label = 'Confirmée';
+      break;
+    case 'annulee':
+      icon = Icons.cancel;
+      color = const Color(0xFFE53935); // rouge
+      label = 'Annulée';
+      break;
+    default:
+      icon = Icons.hourglass_bottom;
+      color = const Color(0xFFFF9800); // orange
+      label = 'En attente';
+  }
 
-    return Card(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      elevation: 4,
-      margin: const EdgeInsets.only(bottom: 16),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: CircleAvatar(
-                backgroundColor: color.withOpacity(0.15),
-                child: Icon(icon, color: color),
+  return Container(
+    margin: const EdgeInsets.only(bottom: 16),
+    decoration: BoxDecoration(
+      color: Colors.white, // ✅ fond blanc pur ici
+      borderRadius: BorderRadius.circular(16),
+      boxShadow: const [
+        BoxShadow(
+          color: Colors.black12,
+          blurRadius: 6,
+          offset: Offset(0, 2),
+        )
+      ],
+    ),
+    child: Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: CircleAvatar(
+              radius: 24,
+              backgroundColor: color.withOpacity(0.12),
+              child: Icon(icon, color: color),
+            ),
+            title: Text(
+              commande['nom_client']!,
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+            subtitle: Text(
+              commande['telephone']!,
+              style: const TextStyle(color: Colors.grey),
+            ),
+            trailing: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(14),
               ),
-              title: Text(
-                commande['nom_client']!,
-                style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                    color: Color(0xFF141414)),
-              ),
-              subtitle: Text(
-                commande['telephone']!,
-                style: const TextStyle(color: Colors.grey),
-              ),
-              trailing: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                decoration: BoxDecoration(
-                  color: color.withOpacity(0.12),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  label,
-                  style: TextStyle(
-                      color: color,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 12),
+              child: Text(
+                label,
+                style: TextStyle(
+                  color: color,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 12,
                 ),
               ),
             ),
-            const Divider(),
-            _commandeInfo("Produit", commande['produit']!),
-            _commandeInfo("Adresse", commande['adresse']!),
-            _commandeInfo("Ville", commande['ville']!),
-            _commandeInfo("Mode de paiement", commande['mode_paiement']!),
-            const SizedBox(height: 12),
-            if (statut == 'en_attente')
-              Row(
-                children: [
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      icon: const Icon(Icons.check),
-                      label: const Text("Confirmer"),
-                      onPressed: () => _changerStatut(index, 'validée'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF4CAF50),
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12)),
+          ),
+          const Divider(height: 20),
+          _commandeInfo("Produit", commande['produit']!),
+          _commandeInfo("Adresse", commande['adresse']!),
+          _commandeInfo("Ville", commande['ville']!),
+          _commandeInfo("Mode de paiement", commande['mode_paiement']!),
+          const SizedBox(height: 14),
+          if (statut == 'en_attente')
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () => _changerStatut(index, 'validée'),
+                    icon: const Icon(Icons.check),
+                    label: const Text("Confirmer"),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF4CAF50),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
                       ),
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      icon: const Icon(Icons.cancel),
-                      label: const Text("Annuler"),
-                      onPressed: () => _changerStatut(index, 'annulee'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFE53935),
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12)),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () => _changerStatut(index, 'annulee'),
+                    icon: const Icon(Icons.cancel),
+                    label: const Text("Annuler"),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFE53935),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
                       ),
                     ),
                   ),
-                ],
-              ),
-          ],
-        ),
+                ),
+              ],
+            ),
+        ],
       ),
-    );
-  }
+    ),
+  );
+}
+
 
   Widget _commandeInfo(String label, String value) {
     return Padding(
