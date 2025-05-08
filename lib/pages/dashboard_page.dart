@@ -1,8 +1,11 @@
+import 'dart:convert';
+import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:ecommerce_app/pages/commande_page.dart';
 import 'package:ecommerce_app/pages/produit_page.dart';
 import 'package:ecommerce_app/pages/profile_page.dart';
-import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
@@ -14,12 +17,66 @@ class DashboardPage extends StatefulWidget {
 class _DashboardPageState extends State<DashboardPage> {
   int _currentIndex = 0;
 
+  Map<String, dynamic> dashboardData = {};
+  bool isLoading = true;
+
   final List<Map<String, dynamic>> _navItems = [
     {'icon': Icons.home_rounded, 'label': 'Accueil'},
     {'icon': Icons.shopping_cart, 'label': 'Produits'},
     {'icon': Icons.local_shipping, 'label': 'Commandes'},
     {'icon': Icons.person_outline, 'label': 'Profil'},
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    fetchDashboardData();
+  }
+
+ Future<void> fetchDashboardData() async {
+  setState(() => isLoading = true);
+
+  final prefs = await SharedPreferences.getInstance();
+  final token = prefs.getString("auth_token");
+
+  if (token == null) {
+    print("❌ Aucun token trouvé !");
+    setState(() => isLoading = false);
+    return;
+  }
+
+  print("🔑 Token : $token");
+
+  try {
+    final response = await http.get(
+      Uri.parse("http://192.168.1.39:8080/api/dashboard/infos"),
+      headers: {
+        "Authorization": "Bearer $token",
+        "Content-Type": "application/json"
+      },
+    );
+
+    print("📡 Status: ${response.statusCode}");
+    print("📡 Body: ${response.body}");
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      setState(() {
+        dashboardData = data;
+        isLoading = false;
+      });
+    } else {
+      print("❌ Erreur API: ${response.statusCode}");
+      setState(() => isLoading = false);
+    }
+  } catch (e) {
+    print("❌ Exception pendant l'appel API: $e");
+    setState(() => isLoading = false);
+  }
+}
+
+
+
 
   @override
   Widget build(BuildContext context) {
@@ -34,15 +91,18 @@ class _DashboardPageState extends State<DashboardPage> {
             backgroundImage: AssetImage("assets/logo.png"),
           ),
         ),
-        title: const Column(
+        title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text("Youssef Kitabrhi",
-                style: TextStyle(
-                    color: Color(0xFF141414),
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16)),
-            Text("Admin", style: TextStyle(color: Colors.grey, fontSize: 12)),
+            Text(
+              dashboardData['nom'] ?? 'Chargement...',
+              style: const TextStyle(
+                  color: Color(0xFF141414),
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16),
+            ),
+            const Text("Admin",
+                style: TextStyle(color: Colors.grey, fontSize: 12)),
           ],
         ),
         actions: const [
@@ -52,7 +112,7 @@ class _DashboardPageState extends State<DashboardPage> {
           SizedBox(width: 12),
         ],
       ),
-      body: _buildBody(),
+      body: isLoading ? Center(child: CircularProgressIndicator()) : _buildBody(),
       bottomNavigationBar: _buildBottomBar(),
     );
   }
@@ -73,6 +133,11 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   Widget _buildDashboardContent() {
+    final confirmed = dashboardData['commandes_validees'] ?? 0;
+    final cancelled = dashboardData['commandes_annulees'] ?? 0;
+    final pending = dashboardData['commandes_en_attente'] ?? 0;
+    final total = confirmed + cancelled + pending;
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -81,22 +146,14 @@ class _DashboardPageState extends State<DashboardPage> {
           _buildSearchBar(),
           const SizedBox(height: 24),
           const Text("Répartition des commandes",
-              style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 18,
-                  color: Color(0xFF141414))),
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
           const SizedBox(height: 12),
-          _buildPieChart(),
+          _buildPieChart(confirmed.toDouble(), cancelled.toDouble(), pending.toDouble(), total.toDouble()),
           const SizedBox(height: 30),
-          const Text("Statistiques des produits",
-              style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 18,
-                  color: Color(0xFF141414))),
+          const Text("Clients par produit",
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
           const SizedBox(height: 16),
-          _statItem("Produit A", "300 Clients", 0.3, Icons.tune),
-          _statItem("Produit B", "3149 Clients", 0.8, Icons.auto_graph),
-          _statItem("Produit C", "4700 Clients", 1.0, Icons.check_circle_outline),
+          _statItem("Clients contactés", "${dashboardData['clients_contactes'] ?? 0} personnes", 1.0, Icons.people),
         ],
       ),
     );
@@ -120,89 +177,83 @@ class _DashboardPageState extends State<DashboardPage> {
     );
   }
 
-  Widget _buildPieChart() {
-    final confirmed = 50.0;
-    final cancelled = 20.0;
-    final pending = 30.0;
-    final total = confirmed + cancelled + pending;
+  Widget _buildPieChart(double confirmed, double cancelled, double pending, double total) {
+  // Évite la division par zéro
+  double pct(double v) => total == 0 ? 0 : (v / total * 100);
 
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 5)],
-      ),
-      child: Column(
-        children: [
-          SizedBox(
-            height: 180,
-            child: Stack(
-              children: [
-                PieChart(
-                  PieChartData(
-                    centerSpaceRadius: 45,
-                    sectionsSpace: 2,
-                    sections: [
-                      PieChartSectionData(
-                        color: Colors.green,
-                        value: confirmed,
-                        title: '${(confirmed / total * 100).toInt()}%',
-                        radius: 50,
-                        titleStyle: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 12,
-                            color: Colors.white),
-                      ),
-                      PieChartSectionData(
-                        color: Colors.redAccent,
-                        value: cancelled,
-                        title: '${(cancelled / total * 100).toInt()}%',
-                        radius: 50,
-                        titleStyle: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 12,
-                            color: Colors.white),
-                      ),
-                      PieChartSectionData(
-                        color: Colors.orange,
-                        value: pending,
-                        title: '${(pending / total * 100).toInt()}%',
-                        radius: 50,
-                        titleStyle: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 12,
-                            color: Colors.white),
-                      ),
-                    ],
-                    centerSpaceColor: Colors.white,
-                  ),
+  return Container(
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(16),
+      boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 5)],
+    ),
+    child: Column(
+      children: [
+        SizedBox(
+          height: 180,
+          child: Stack(
+            children: [
+              PieChart(
+                PieChartData(
+                  centerSpaceRadius: 45,
+                  sectionsSpace: 2,
+                  sections: [
+                    PieChartSectionData(
+                      color: Colors.green,
+                      value: confirmed,
+                      title: '${pct(confirmed).toInt()}%',
+                      radius: 50,
+                      titleStyle: const TextStyle(
+                          fontWeight: FontWeight.bold, fontSize: 12, color: Colors.white),
+                    ),
+                    PieChartSectionData(
+                      color: Colors.redAccent,
+                      value: cancelled,
+                      title: '${pct(cancelled).toInt()}%',
+                      radius: 50,
+                      titleStyle: const TextStyle(
+                          fontWeight: FontWeight.bold, fontSize: 12, color: Colors.white),
+                    ),
+                    PieChartSectionData(
+                      color: Colors.orange,
+                      value: pending,
+                      title: '${pct(pending).toInt()}%',
+                      radius: 50,
+                      titleStyle: const TextStyle(
+                          fontWeight: FontWeight.bold, fontSize: 12, color: Colors.white),
+                    ),
+                  ],
+                  centerSpaceColor: Colors.white,
                 ),
-                Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Text("Total", style: TextStyle(color: Colors.grey)),
-                      Text("$total", style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                    ],
-                  ),
+              ),
+              Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Text("Total", style: TextStyle(color: Colors.grey)),
+                    Text("$total",
+                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  ],
                 ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: const [
-              _LegendItem(color: Colors.green, label: "Confirmés"),
-              _LegendItem(color: Colors.redAccent, label: "Annulés"),
-              _LegendItem(color: Colors.orange, label: "En attente"),
+              ),
             ],
-          )
-        ],
-      ),
-    );
-  }
+          ),
+        ),
+        const SizedBox(height: 16),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: const [
+            _LegendItem(color: Colors.green, label: "Confirmés"),
+            _LegendItem(color: Colors.redAccent, label: "Annulés"),
+            _LegendItem(color: Colors.orange, label: "En attente"),
+          ],
+        )
+      ],
+    ),
+  );
+}
+
 
   Widget _statItem(String title, String subtitle, double progress, IconData icon) {
     return Container(
