@@ -11,8 +11,8 @@ class CommandePage extends StatefulWidget {
 
 class _CommandePageState extends State<CommandePage> {
   final List<Map<String, dynamic>> _commandes = [];
-  final TextEditingController _search = TextEditingController();
-
+  final Map<int, String>          _localOverride = {}; // ⬅️ mémorise les changements
+  final TextEditingController     _search        = TextEditingController();
   bool _loading = true;
 
   static const String baseUrl = "http://192.168.1.39:8080";
@@ -34,26 +34,31 @@ class _CommandePageState extends State<CommandePage> {
   String _normalize(String s) => s
       .toLowerCase()
       .replaceAll(RegExp('[éèêë]'), 'e')
-      .replaceAll(RegExp(r'[_\s]+'), '')
+      .replaceAll(RegExp(r'[_\\s]+'), '')
       .trim();
 
   /* ---------------- API ---------------- */
 
   Future<void> _fetchCommandes() async {
-    final now = DateTime.now();
-    debugPrint(">>> fetch commandes @ $now");
     setState(() => _loading = true);
-
     final res = await http.get(
       Uri.parse("$baseUrl/api/commandes/me"),
       headers: await _headers(),
     );
 
     if (res.statusCode == 200) {
+      final List raw = jsonDecode(res.body);
+      // applique les overrides avant d’afficher
+      for (var c in raw) {
+        final id = c['id'];
+        if (_localOverride.containsKey(id)) {
+          c['statut'] = _localOverride[id];
+        }
+      }
       setState(() {
         _commandes
           ..clear()
-          ..addAll(jsonDecode(res.body).cast<Map<String, dynamic>>());
+          ..addAll(raw.cast<Map<String, dynamic>>());
         _loading = false;
       });
     } else {
@@ -63,20 +68,20 @@ class _CommandePageState extends State<CommandePage> {
   }
 
   Future<void> _updateStatut(int id, String newStatut) async {
-  final uri = Uri.parse("$baseUrl/api/commandes/$id/statut?statut=$newStatut");
-  final res = await http.put(uri, headers: await _headers());
+    final uri = Uri.parse("$baseUrl/api/commandes/$id/statut?statut=$newStatut");
+    final res = await http.put(uri, headers: await _headers());
 
-  if (res.statusCode == 200) {
-    setState(() {
-      final idx = _commandes.indexWhere((c) => c['id'] == id);
-      if (idx != -1) _commandes[idx]['statut'] = newStatut;  // ⬅️ maj locale
-    });
-    _snack("Statut mis à jour");
-  } else {
-    _snack("Erreur statut : ${res.statusCode}");
+    if (res.statusCode == 200) {
+      setState(() {
+        _localOverride[id] = newStatut;                     // ⬅️ garde trace
+        final idx = _commandes.indexWhere((c) => c['id'] == id);
+        if (idx != -1) _commandes[idx]['statut'] = newStatut;
+      });
+      _snack("Statut mis à jour");
+    } else {
+      _snack("Erreur statut : ${res.statusCode}");
+    }
   }
-}
-
 
   /* ---------------- Lifecycle ---------------- */
 
@@ -113,7 +118,7 @@ class _CommandePageState extends State<CommandePage> {
         ),
       );
 
-  /* -- AppBar -- */
+  /* -- AppBar & Search -- */
 
   PreferredSizeWidget _buildAppBar() => AppBar(
         backgroundColor: Colors.white.withOpacity(0.95),
@@ -142,8 +147,6 @@ class _CommandePageState extends State<CommandePage> {
         ],
       );
 
-  /* -- Search -- */
-
   Widget _buildSearchBar() => Padding(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
         child: TextField(
@@ -156,8 +159,6 @@ class _CommandePageState extends State<CommandePage> {
             fillColor: Colors.white,
             border:
                 OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
           ),
         ),
       );
@@ -165,12 +166,11 @@ class _CommandePageState extends State<CommandePage> {
   /* -- List -- */
 
   Widget _buildList() {
-    final query = _search.text.trim().toLowerCase();
-    final data = query.isEmpty
+    final q = _search.text.toLowerCase();
+    final data = q.isEmpty
         ? _commandes
         : _commandes.where((c) {
-            bool inside(String? v) =>
-                v != null && v.toLowerCase().contains(query);
+            bool inside(String? v) => v != null && v.toLowerCase().contains(q);
             return inside(c['nomClient']) ||
                 inside(c['telephone']) ||
                 inside(c['ville']) ||
@@ -179,9 +179,7 @@ class _CommandePageState extends State<CommandePage> {
           }).toList();
 
     if (data.isEmpty) {
-      return const Center(
-          child: Text("Aucun résultat",
-              style: TextStyle(color: Colors.grey, fontSize: 16)));
+      return const Center(child: Text("Aucun résultat", style: TextStyle(color: Colors.grey)));
     }
 
     return ListView.builder(
@@ -200,7 +198,6 @@ class _CommandePageState extends State<CommandePage> {
     IconData icon;
     Color color;
     String badge;
-
     switch (status) {
       case 'validee':
         icon = Icons.check_circle;
@@ -246,10 +243,8 @@ class _CommandePageState extends State<CommandePage> {
                   color: color.withOpacity(0.15),
                   borderRadius: BorderRadius.circular(14)),
               child: Text(badge,
-                  style: TextStyle(
-                      color: color,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 12)),
+                  style:
+                      TextStyle(color: color, fontWeight: FontWeight.w600)),
             ),
           ),
           const Divider(height: 20),
@@ -299,9 +294,7 @@ class _CommandePageState extends State<CommandePage> {
           Text("$label : ",
               style: const TextStyle(
                   fontWeight: FontWeight.w600, color: Color(0xFF141414))),
-          Expanded(
-            child: Text(value, style: const TextStyle(color: Colors.black87)),
-          ),
+          Expanded(child: Text(value, style: const TextStyle(color: Colors.black87))),
         ]),
       );
 }
