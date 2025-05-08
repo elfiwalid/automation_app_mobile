@@ -27,14 +27,21 @@ class _CommandePageState extends State<CommandePage> {
   Future<Map<String, String>> _headers() async {
     final token =
         (await SharedPreferences.getInstance()).getString("auth_token") ?? "";
-    return {"Authorization": "Bearer $token", "Content-Type": "application/json"};
+    return {
+      "Authorization": "Bearer $token",
+      "Content-Type": "application/json"
+    };
   }
 
   void _snack(String msg) =>
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
 
-  String _normalize(String s) =>
-      s.toLowerCase().replaceAll('é', 'e').replaceAll('è', 'e').trim();
+  /// supprime accents, majuscules, espaces parasites
+  String _normalize(String s) => s
+      .toLowerCase()
+      .replaceAll(RegExp('[éèêë]'), 'e')
+      .replaceAll(RegExp(r'\s+'), '')
+      .trim();
 
   /* ---------------- API ---------------- */
 
@@ -58,15 +65,23 @@ class _CommandePageState extends State<CommandePage> {
     }
   }
 
-  Future<void> _updateStatut(int id, String statut) async {
-    final res = await http.put(
-      Uri.parse("$baseUrl/api/commandes/$id/statut?statut=$statut"),
-      headers: await _headers(),
-    );
+  Future<void> _updateStatut(int id, String newStatut) async {
+    final uri =
+        Uri.parse("$baseUrl/api/commandes/$id/statut?statut=$newStatut");
+    final res = await http.put(uri, headers: await _headers());
+
+    // --- DEBUG : affiche le statut réellement renvoyé ---
+    //  (supprime ce print quand tout fonctionne)
+    print("PUT $uri  -> ${res.statusCode}  ${res.body}");
 
     if (res.statusCode == 200) {
+      final updated = jsonDecode(res.body);
+      // mise à jour optimiste de la liste
+      setState(() {
+        final idx = commandes.indexWhere((c) => c['id'] == id);
+        if (idx != -1) commandes[idx] = updated;
+      });
       _snack("Statut mis à jour");
-      await _fetchCommandes(); // relecture immédiate
     } else {
       _snack("Erreur statut : ${res.statusCode}");
     }
@@ -102,23 +117,24 @@ class _CommandePageState extends State<CommandePage> {
                 Icon(Icons.local_shipping_outlined, color: Color(0xFFFF5A1A)),
           ),
         ),
-        title: const Text("Gestion des Commandes",
-            style: TextStyle(
-                color: Color(0xFF141414),
-                fontWeight: FontWeight.w600,
-                fontSize: 18)),
+        title: const Text(
+          "Gestion des Commandes",
+          style: TextStyle(
+              color: Color(0xFF141414),
+              fontWeight: FontWeight.w600,
+              fontSize: 18),
+        ),
       );
 
   Widget _buildCard(Map<String, dynamic> c) {
-    final raw = (c['statut'] ?? '').toString();
-    final status = _normalize(raw);
+    final status = _normalize(c['statut'] ?? '');
 
     IconData icon;
     Color color;
     String badge;
 
     switch (status) {
-      case 'validee':
+      case 'validee': // validée / validée (SGBD) → validee
         icon = Icons.check_circle;
         color = const Color(0xFF4CAF50);
         badge = 'Confirmée';
@@ -157,8 +173,7 @@ class _CommandePageState extends State<CommandePage> {
                 style: const TextStyle(fontWeight: FontWeight.bold)),
             subtitle: Text(c['telephone']),
             trailing: Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
                   color: color.withOpacity(0.15),
                   borderRadius: BorderRadius.circular(14)),
@@ -175,7 +190,7 @@ class _CommandePageState extends State<CommandePage> {
           _info("Ville", c['ville']),
           _info("Mode de paiement", c['modePaiement'] ?? ''),
           const SizedBox(height: 14),
-          if (status == 'en_attente')
+          if (status == 'enattente') // NB : après _normalize(), 'en_attente' devient 'enattente'
             Row(children: [
               Expanded(
                 child: ElevatedButton.icon(
