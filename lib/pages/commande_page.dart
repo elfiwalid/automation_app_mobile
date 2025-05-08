@@ -5,22 +5,17 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class CommandePage extends StatefulWidget {
   const CommandePage({super.key});
-
   @override
   State<CommandePage> createState() => _CommandePageState();
 }
 
 class _CommandePageState extends State<CommandePage> {
-  final List<Map<String, dynamic>> commandes = [];
-  bool loading = true;
+  final List<Map<String, dynamic>> _commandes = [];
+  final TextEditingController _search = TextEditingController();
+
+  bool _loading = true;
 
   static const String baseUrl = "http://192.168.1.39:8080";
-
-  @override
-  void initState() {
-    super.initState();
-    _fetchCommandes();
-  }
 
   /* ---------------- Helpers ---------------- */
 
@@ -33,20 +28,22 @@ class _CommandePageState extends State<CommandePage> {
     };
   }
 
-  void _snack(String msg) =>
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+  void _snack(String m) =>
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m)));
 
-  /// supprime accents, majuscules, espaces parasites
   String _normalize(String s) => s
       .toLowerCase()
       .replaceAll(RegExp('[éèêë]'), 'e')
-      .replaceAll(RegExp(r'\s+'), '')
+      .replaceAll(RegExp(r'[_\s]+'), '')
       .trim();
 
   /* ---------------- API ---------------- */
 
   Future<void> _fetchCommandes() async {
-    setState(() => loading = true);
+    final now = DateTime.now();
+    debugPrint(">>> fetch commandes @ $now");
+    setState(() => _loading = true);
+
     final res = await http.get(
       Uri.parse("$baseUrl/api/commandes/me"),
       headers: await _headers(),
@@ -54,37 +51,45 @@ class _CommandePageState extends State<CommandePage> {
 
     if (res.statusCode == 200) {
       setState(() {
-        commandes
+        _commandes
           ..clear()
           ..addAll(jsonDecode(res.body).cast<Map<String, dynamic>>());
-        loading = false;
+        _loading = false;
       });
     } else {
       _snack("Erreur chargement : ${res.statusCode}");
-      setState(() => loading = false);
+      setState(() => _loading = false);
     }
   }
 
   Future<void> _updateStatut(int id, String newStatut) async {
-    final uri =
-        Uri.parse("$baseUrl/api/commandes/$id/statut?statut=$newStatut");
-    final res = await http.put(uri, headers: await _headers());
+  final uri = Uri.parse("$baseUrl/api/commandes/$id/statut?statut=$newStatut");
+  final res = await http.put(uri, headers: await _headers());
 
-    // --- DEBUG : affiche le statut réellement renvoyé ---
-    //  (supprime ce print quand tout fonctionne)
-    print("PUT $uri  -> ${res.statusCode}  ${res.body}");
+  if (res.statusCode == 200) {
+    setState(() {
+      final idx = _commandes.indexWhere((c) => c['id'] == id);
+      if (idx != -1) _commandes[idx]['statut'] = newStatut;  // ⬅️ maj locale
+    });
+    _snack("Statut mis à jour");
+  } else {
+    _snack("Erreur statut : ${res.statusCode}");
+  }
+}
 
-    if (res.statusCode == 200) {
-      final updated = jsonDecode(res.body);
-      // mise à jour optimiste de la liste
-      setState(() {
-        final idx = commandes.indexWhere((c) => c['id'] == id);
-        if (idx != -1) commandes[idx] = updated;
-      });
-      _snack("Statut mis à jour");
-    } else {
-      _snack("Erreur statut : ${res.statusCode}");
-    }
+
+  /* ---------------- Lifecycle ---------------- */
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchCommandes();
+  }
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
   }
 
   /* ---------------- UI ---------------- */
@@ -93,14 +98,22 @@ class _CommandePageState extends State<CommandePage> {
   Widget build(BuildContext context) => Scaffold(
         backgroundColor: const Color(0xFFF4F6FA),
         appBar: _buildAppBar(),
-        body: loading
-            ? const Center(child: CircularProgressIndicator())
-            : ListView.builder(
-                padding: const EdgeInsets.all(16),
-                itemCount: commandes.length,
-                itemBuilder: (_, i) => _buildCard(commandes[i]),
-              ),
+        body: Column(
+          children: [
+            _buildSearchBar(),
+            Expanded(
+              child: _loading
+                  ? const Center(child: CircularProgressIndicator())
+                  : RefreshIndicator(
+                      onRefresh: _fetchCommandes,
+                      child: _buildList(),
+                    ),
+            ),
+          ],
+        ),
       );
+
+  /* -- AppBar -- */
 
   PreferredSizeWidget _buildAppBar() => AppBar(
         backgroundColor: Colors.white.withOpacity(0.95),
@@ -117,14 +130,69 @@ class _CommandePageState extends State<CommandePage> {
                 Icon(Icons.local_shipping_outlined, color: Color(0xFFFF5A1A)),
           ),
         ),
-        title: const Text(
-          "Gestion des Commandes",
-          style: TextStyle(
-              color: Color(0xFF141414),
-              fontWeight: FontWeight.w600,
-              fontSize: 18),
+        title: const Text("Gestion des Commandes",
+            style: TextStyle(
+                color: Color(0xFF141414),
+                fontWeight: FontWeight.w600,
+                fontSize: 18)),
+        actions: [
+          IconButton(
+              onPressed: _fetchCommandes,
+              icon: const Icon(Icons.refresh, color: Color(0xFF141414)))
+        ],
+      );
+
+  /* -- Search -- */
+
+  Widget _buildSearchBar() => Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
+        child: TextField(
+          controller: _search,
+          onChanged: (_) => setState(() {}),
+          decoration: InputDecoration(
+            hintText: "Rechercher (client, produit, ville…) ",
+            prefixIcon: const Icon(Icons.search),
+            filled: true,
+            fillColor: Colors.white,
+            border:
+                OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+          ),
         ),
       );
+
+  /* -- List -- */
+
+  Widget _buildList() {
+    final query = _search.text.trim().toLowerCase();
+    final data = query.isEmpty
+        ? _commandes
+        : _commandes.where((c) {
+            bool inside(String? v) =>
+                v != null && v.toLowerCase().contains(query);
+            return inside(c['nomClient']) ||
+                inside(c['telephone']) ||
+                inside(c['ville']) ||
+                inside(c['adresse']) ||
+                inside(c['produit']?['nom']);
+          }).toList();
+
+    if (data.isEmpty) {
+      return const Center(
+          child: Text("Aucun résultat",
+              style: TextStyle(color: Colors.grey, fontSize: 16)));
+    }
+
+    return ListView.builder(
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      itemCount: data.length,
+      itemBuilder: (_, i) => _buildCard(data[i]),
+    );
+  }
+
+  /* -- Card -- */
 
   Widget _buildCard(Map<String, dynamic> c) {
     final status = _normalize(c['statut'] ?? '');
@@ -134,7 +202,7 @@ class _CommandePageState extends State<CommandePage> {
     String badge;
 
     switch (status) {
-      case 'validee': // validée / validée (SGBD) → validee
+      case 'validee':
         icon = Icons.check_circle;
         color = const Color(0xFF4CAF50);
         badge = 'Confirmée';
@@ -190,7 +258,7 @@ class _CommandePageState extends State<CommandePage> {
           _info("Ville", c['ville']),
           _info("Mode de paiement", c['modePaiement'] ?? ''),
           const SizedBox(height: 14),
-          if (status == 'enattente') // NB : après _normalize(), 'en_attente' devient 'enattente'
+          if (status == 'enattente')
             Row(children: [
               Expanded(
                 child: ElevatedButton.icon(
@@ -225,13 +293,15 @@ class _CommandePageState extends State<CommandePage> {
     );
   }
 
-  Widget _info(String l, String v) => Padding(
+  Widget _info(String label, String value) => Padding(
         padding: const EdgeInsets.only(bottom: 6),
         child: Row(children: [
-          Text("$l : ",
+          Text("$label : ",
               style: const TextStyle(
                   fontWeight: FontWeight.w600, color: Color(0xFF141414))),
-          Expanded(child: Text(v, style: const TextStyle(color: Colors.black87)))
+          Expanded(
+            child: Text(value, style: const TextStyle(color: Colors.black87)),
+          ),
         ]),
       );
 }
