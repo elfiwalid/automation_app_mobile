@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:ecommerce_app/pages/whatsapp_page.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:ecommerce_app/pages/commande_page.dart';
@@ -6,6 +7,8 @@ import 'package:ecommerce_app/pages/produit_page.dart';
 import 'package:ecommerce_app/pages/profile_page.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
@@ -16,6 +19,7 @@ class DashboardPage extends StatefulWidget {
 
 class _DashboardPageState extends State<DashboardPage> {
   int _currentIndex = 0;
+  String _ecomId = '' ;    
 
   Map<String, dynamic> dashboardData = {};
   bool isLoading = true;
@@ -23,6 +27,7 @@ class _DashboardPageState extends State<DashboardPage> {
   final List<Map<String, dynamic>> _navItems = [
     {'icon': Icons.home_rounded, 'label': 'Accueil'},
     {'icon': Icons.shopping_cart, 'label': 'Produits'},
+    {'icon': FontAwesomeIcons.whatsapp,    'label': 'WhatsApp'},
     {'icon': Icons.local_shipping, 'label': 'Commandes'},
     {'icon': Icons.person_outline, 'label': 'Profil'},
   ];
@@ -61,6 +66,7 @@ class _DashboardPageState extends State<DashboardPage> {
 
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
+      _ecomId = (data['ecommercant_id'] ?? '').toString();   // ⬅️  NOUVEAU
       setState(() {
         dashboardData = data;
         isLoading = false;
@@ -101,8 +107,6 @@ class _DashboardPageState extends State<DashboardPage> {
                   fontWeight: FontWeight.bold,
                   fontSize: 16),
             ),
-            const Text("Admin",
-                style: TextStyle(color: Colors.grey, fontSize: 12)),
           ],
         ),
         actions: const [
@@ -124,8 +128,10 @@ class _DashboardPageState extends State<DashboardPage> {
       case 1:
         return ProduitPage();
       case 2:
-        return CommandePage();
+        return WhatsAppPage(ecommercantId: _ecomId);
       case 3:
+        return CommandePage();
+      case 4:
         return ProfilePage();
       default:
         return const SizedBox.shrink();
