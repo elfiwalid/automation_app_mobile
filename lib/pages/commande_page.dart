@@ -15,7 +15,7 @@ class _CommandePageState extends State<CommandePage> {
   final TextEditingController     _search        = TextEditingController();
   bool _loading = true;
 
-  static const String baseUrl = "http://192.168.1.39:8080";
+  static const String baseUrl = "http://localhost:8080";
 
   /* ---------------- Helpers ---------------- */
 

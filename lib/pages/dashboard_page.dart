@@ -54,7 +54,7 @@ class _DashboardPageState extends State<DashboardPage> {
 
   try {
     final response = await http.get(
-      Uri.parse("http://192.168.1.39:8080/api/dashboard/infos"),
+      Uri.parse("http://localhost:8080/api/dashboard/infos"),
       headers: {
         "Authorization": "Bearer $token",
         "Content-Type": "application/json"

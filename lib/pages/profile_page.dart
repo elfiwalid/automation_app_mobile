@@ -15,7 +15,7 @@ class _ProfilePageState extends State<ProfilePage> {
   String _role = '';
   bool _load = true;
 
-  static const baseUrl = "http://192.168.1.39:8080";
+  static const baseUrl = "http://localhost:8080";
   static const orange = Color(0xFFFF6B30);
   static const veryLightOrange = Color(0xFFFFF5F0);
 

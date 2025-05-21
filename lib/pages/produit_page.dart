@@ -24,7 +24,7 @@ class _ProduitPageState extends State<ProduitPage> {
   final _detailValeurController = TextEditingController();
   final List<Map<String,String>> _details = [];
 
-  static const String baseUrl = "http://192.168.1.39:8080";
+  static const String baseUrl = "http://localhost:8080";
 
   @override
   void initState() {

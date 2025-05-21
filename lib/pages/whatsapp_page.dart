@@ -17,7 +17,7 @@ class WhatsAppPage extends StatefulWidget {
 
 class _WhatsAppPageState extends State<WhatsAppPage> {
   // URL de ton bridge NodeJS
-  static const nodeUrl = 'http://192.168.1.39:3000';
+  static const nodeUrl = 'http://localhost:3000';
 
   bool _loading = true;
   bool _connected = false;

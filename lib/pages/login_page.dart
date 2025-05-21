@@ -30,9 +30,11 @@ class _LoginPageState extends State<LoginPage> {
 
   setState(() => isLoading = true);
 
+  const baseUrl = "http://localhost:8080";
+
   try {
-    final response = await http.post(
-      Uri.parse("http://192.168.1.39:8080/api/auth/login"),
+    final loginResponse = await http.post(
+      Uri.parse("$baseUrl/api/auth/login"),
       headers: {"Content-Type": "application/json"},
       body: jsonEncode({
         "username": username,
@@ -40,17 +42,14 @@ class _LoginPageState extends State<LoginPage> {
       }),
     );
 
-    if (response.statusCode == 200) {
-      final token = response.body;
-await SharedPreferences.getInstance().then((prefs) {
-  prefs.setString("auth_token", token);
-});
+    if (loginResponse.statusCode == 200) {
+      final token = loginResponse.body;
 
-      
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString("auth_token", token);
 
-      // Appel à /me pour récupérer le rôle
       final meResponse = await http.get(
-        Uri.parse("http://192.168.1.39:8080/api/auth/me"),
+        Uri.parse("$baseUrl/api/auth/me"),
         headers: {
           "Authorization": "Bearer $token",
           "Content-Type": "application/json",
@@ -61,15 +60,17 @@ await SharedPreferences.getInstance().then((prefs) {
         final userInfo = jsonDecode(meResponse.body);
         final role = userInfo['role'];
 
+        if (!mounted) return;
+
         if (role == "ECOMMERCANT") {
           Navigator.pushReplacement(
             context,
-            MaterialPageRoute(builder: (context) => const DashboardPage()),
+            MaterialPageRoute(builder: (_) => const DashboardPage()),
           );
         } else if (role == "ADMIN") {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text("Accès réservé à l’administrateur. Interface en cours de développement."),
+              content: Text("Accès réservé à l’administrateur."),
               backgroundColor: Colors.deepOrange,
             ),
           );
@@ -79,16 +80,19 @@ await SharedPreferences.getInstance().then((prefs) {
           );
         }
       } else {
+        print("❌ Erreur /me : ${meResponse.statusCode}");
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Impossible de récupérer le rôle utilisateur")),
+          const SnackBar(content: Text("Impossible de récupérer les infos utilisateur")),
         );
       }
     } else {
+      print("❌ Erreur login : ${loginResponse.statusCode}");
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Échec de la connexion")),
       );
     }
   } catch (e) {
+    print("❌ Exception login : $e");
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text("Erreur : $e")),
     );
@@ -96,6 +100,7 @@ await SharedPreferences.getInstance().then((prefs) {
     setState(() => isLoading = false);
   }
 }
+
 
 
   @override
